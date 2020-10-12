@@ -124,6 +124,9 @@ class Player(pygame.sprite.Sprite):
         self.power +=1
         self.power_time = pygame.time.get_ticks()
 
+    def getPower(self):
+        return self.power
+
     def levelup(self):
         self.level += 1
         self.level_time = pygame.time.get_ticks()
@@ -132,12 +135,12 @@ class Player(pygame.sprite.Sprite):
         now = pygame.time.get_ticks()
         if now - self.last_shot > self.shoot_delay:
             self.last_shot = now
-            if self.power == 1:
+            if self.power < 3:
                 bullet = Bullet(self.rect.centerx, self.rect.top)
                 all_sprites.add(bullet)
                 bullets.add(bullet)
                 shoot_sound.play()
-            elif self.power >= 2 and self.power <= 4:
+            elif self.power >= 3 and self.power <= 6:
                 bullet1 = Bullet(self.rect.left, self.rect.centery)
                 bullet2 = Bullet(self.rect.right, self.rect.centery)
                 all_sprites.add(bullet1)
@@ -145,7 +148,7 @@ class Player(pygame.sprite.Sprite):
                 bullets.add(bullet1)
                 bullets.add(bullet2)
                 shoot_sound.play()
-            elif self.power > 4:
+            elif self.power > 6:
                 bullet = Bullet(self.rect.centerx, self.rect.top)
                 bullet1 = Bullet(self.rect.left, self.rect.centery)
                 bullet2 = Bullet(self.rect.right, self.rect.centery)
@@ -549,7 +552,7 @@ while running:
         random.choice(expl_sounds).play()
         expl = Explosion(hit.rect.center, 'sm')
         all_sprites.add(expl)
-        if random.random() > 0.9:
+        if random.random() > 0.75:
             pow = Pow(hit.rect.center)
             all_sprites.add(pow)
             powerups.add(pow)
@@ -561,7 +564,7 @@ while running:
         random.choice(expl_sounds).play()
         expl = Explosion(hit.rect.center, 'sm')
         all_sprites.add(expl)
-        if random.random() > 0.9:
+        if random.random() > 0.85:
             pow = Pow(hit.rect.center)
             all_sprites.add(pow)
             powerups.add(pow)
@@ -573,7 +576,7 @@ while running:
         random.choice(expl_sounds).play()
         expl = Explosion(hit.rect.center, 'lg')
         all_sprites.add(expl)
-        if random.random() > 0.9:
+        if random.random() > 0.95:
             pow = Pow(hit.rect.center)
             all_sprites.add(pow)
             powerups.add(pow)
@@ -647,7 +650,8 @@ while running:
     all_sprites.draw(screen)
     draw_text(screen, str(round(score)), 18, WIDTH/2, 10)
     draw_text(screen, str(round((pygame.time.get_ticks() - beginning_time)/1000))+" s", 18, WIDTH - 50, 50)
-    draw_text(screen, "LEVEL: "+str(level), 30, 50, HEIGHT - 50)
+    draw_text(screen, "LEVEL: "+str(level), 20, 60, HEIGHT - 50)
+    draw_text(screen, "POWER: "+str(player.getPower()), 20, WIDTH - 60, HEIGHT - 50)
     draw_shield_bar(screen, 5, 5, player.shield)
     draw_lives(screen, WIDTH - 100, 5, player.lives, player_mini_img)
     if score >= highscore - 1:
