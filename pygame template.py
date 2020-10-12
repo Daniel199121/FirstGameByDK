@@ -137,11 +137,22 @@ class Player(pygame.sprite.Sprite):
                 all_sprites.add(bullet)
                 bullets.add(bullet)
                 shoot_sound.play()
-            if self.power >= 2:
+            elif self.power >= 2 and self.power <= 4:
                 bullet1 = Bullet(self.rect.left, self.rect.centery)
                 bullet2 = Bullet(self.rect.right, self.rect.centery)
                 all_sprites.add(bullet1)
                 all_sprites.add(bullet2)
+                bullets.add(bullet1)
+                bullets.add(bullet2)
+                shoot_sound.play()
+            elif self.power > 4:
+                bullet = Bullet(self.rect.centerx, self.rect.top)
+                bullet1 = Bullet(self.rect.left, self.rect.centery)
+                bullet2 = Bullet(self.rect.right, self.rect.centery)
+                all_sprites.add(bullet)
+                all_sprites.add(bullet1)
+                all_sprites.add(bullet2)
+                bullets.add(bullet)
                 bullets.add(bullet1)
                 bullets.add(bullet2)
                 shoot_sound.play()
