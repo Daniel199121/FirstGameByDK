@@ -8,6 +8,7 @@ from settings import *
 img_dir = path.join(path.dirname(__file__), 'img')
 snd_dir = path.join(path.dirname(__file__), 'sounds')
 expl_dir = path.join(path.dirname(__file__), 'img\\explosion')
+dir = path.dirname(__file__)
 
 # initialize pygame and create window
 pygame.init()
@@ -15,8 +16,10 @@ pygame.mixer.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption(TITLE)
 clock = pygame.time.Clock()
-
 font_name = pygame.font.match_font('arial')
+level = 1
+
+
 def draw_text(surf, text, size, x, y):
     font = pygame.font.Font(font_name, size)
     text_surface = font.render(text, True, WHITE)
@@ -28,6 +31,16 @@ def newmob():
     m = Mob()
     all_sprites.add(m)
     mobs.add(m)
+
+def newEnemies():
+    e = Enemies()
+    all_sprites.add(e)
+    enemies.add(e)
+
+def newUfo():
+    u = Ufo()
+    all_sprites.add(u)
+    ufos.add(u)
 
 def draw_shield_bar(surf, x, y, pct):
     if pct < 0:
@@ -47,62 +60,6 @@ def draw_lives(surf, x, y, lives, img):
         img_rect.y = y
         surf.blit(img, img_rect)
 
-class Game(pygame.sprite.Sprite):
-    def __init__(self):
-        #initialize the game
-        pygame.init()
-        pygame.mixer.init()
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption(TITLE)
-        self.clock = pygame.time.Clock()
-        self.running = True
-
-    def new(self):
-        #Reset the game
-        self.all_sprites = pygame.sprite.Group()
-
-    def run(self):
-        #game loop
-        self.playing = True
-        while self.playing:
-            self.clock.tick(FPS)
-            self.events()
-            self.update()
-            self.draw()
-
-    def update(self):
-        # game loop update
-        self.all_sprites.update()
-
-    def events(self):
-        #game loop events
-        for event in pygame.event.get():
-            # check for closing window
-            if event.type == pygame.QUIT:
-                if self.playing:
-                    self.playing = False
-                self.running = False
-
-    def draw(self):
-        #game loop draw
-        self.screen.fill(BLACK)
-        self.screen.blit(background, background_rect)
-        self.all_sprites.draw(self.screen)
-        # draw_text(self.screen, str(self.score), 18, WIDTH / 2, 10)
-        draw_shield_bar(screen, 5, 5, player.shield)
-        draw_lives(screen, WIDTH - 100, 5, player.lives, player_mini_img)
-        # *after* drawing everything, flip the display
-        pygame.display.flip()
-
-    def show_start_screen(self):
-        #game splash/start screen
-        pass
-
-    def show_go_screen(self):
-        # game over / continue
-        pass
-
-
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -116,7 +73,7 @@ class Player(pygame.sprite.Sprite):
         self.speedx = 0
         self.speedy = 0
         self.shield = 100
-        self.shoot_delay = 250
+        self.shoot_delay = PLAYER_SHOOT_DELAY
         self.last_shot = pygame.time.get_ticks()
         self.lives = 3
         self.hidden = False
@@ -167,6 +124,10 @@ class Player(pygame.sprite.Sprite):
         self.power +=1
         self.power_time = pygame.time.get_ticks()
 
+    def levelup(self):
+        self.level += 1
+        self.level_time = pygame.time.get_ticks()
+
     def shoot(self):
         now = pygame.time.get_ticks()
         if now - self.last_shot > self.shoot_delay:
@@ -191,6 +152,126 @@ class Player(pygame.sprite.Sprite):
         self.hide_timer = pygame.time.get_ticks()
         self.rect.center = (WIDTH / 2, HEIGHT + 200)
 
+class Enemies(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.transform.scale(random.choice(enemies_images), (50, 38))
+        self.image = pygame.transform.rotate(self.image, 180)
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.radius = 21
+        # pygame.draw.circle(self.image, RED, self.rect.center, self.radius)
+        self.rect = self.image.get_rect()
+        self.rect.centerx = random.choice([0, WIDTH])
+        self.vx = random.randrange(1, 4)
+        if self.rect.centerx > WIDTH:
+            self.vx *= -1
+        self.rect.y = random.randrange(HEIGHT / 2)
+        self.vy = 0
+        self.dy = 0.5
+        self.shoot_delay = ENEMIES_SHOOT_DELAY
+        self.last_shot = pygame.time.get_ticks()
+
+
+    def update(self):
+        self.shoot()
+        self.rect.x += self.vx
+        self.vy += self.dy
+        if self.rect.centerx >= WIDTH+10:
+            self.vx *= -1
+        elif self.rect.centerx <= -10:
+            self.vx *= -1
+        if self.vy > 3 or self.vy < -3:
+            self.dy *= -1
+            if self.rect.centery < 50:
+                self.vy = 2
+                self.dy = 0.5
+        center = self.rect.center
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.center = center
+        self.rect.y += self.vy
+
+
+    def shoot(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_shot > self.shoot_delay:
+            self.last_shot = now
+            enemybullet = EnemyBullet(self.rect.centerx, self.rect.bottom)
+            all_sprites.add(enemybullet)
+            enemyBullets.add(enemybullet)
+            shoot_sound.play()
+
+class Ufo(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image_orig = pygame.transform.scale(random.choice(ufo_images), (65, 65))
+        self.image_orig.set_colorkey(BLACK)
+        self.image = self.image_orig.copy()
+        self.rect = self.image.get_rect()
+        self.radius = int(self.rect.width * .85 / 2)
+        # pygame.draw.circle(self.image, RED, self.rect.center, self.radius)
+        self.rect = self.image.get_rect()
+        self.rect.centerx = random.choice([0, WIDTH])
+        self.vx = random.randrange(1, 4)
+        if self.rect.centerx > WIDTH:
+            self.vx *= -1
+        self.rect.y = random.randrange(HEIGHT / 2)
+        self.vy = 0
+        self.dy = 0.5
+        self.rot = 0
+        self.rot_speed = random.randrange(-8, 8)
+        self.last_update = pygame.time.get_ticks()
+        self.shoot_delay = ENEMIES_SHOOT_DELAY
+        self.last_shot = pygame.time.get_ticks()
+
+    def rotate(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_update > 50:
+            self.last_update = now
+            self.rot = (self.rot + self.rot_speed) % 360
+            new_image = pygame.transform.rotate(self.image_orig, self.rot)
+            old_center = self.rect.center
+            self.image = new_image
+            self.rect = self.image.get_rect()
+            self.rect.center = old_center
+
+    def update(self):
+        self.rotate()
+        self.shoot()
+        self.rect.x += self.vx
+        self.vy += self.dy
+        if self.rect.centerx >= WIDTH+10:
+            self.vx *= -1
+        elif self.rect.centerx <= -10:
+            self.vx *= -1
+        if self.vy > 3 or self.vy < -3:
+            self.dy *= -1
+            if self.rect.centery < 50:
+                self.vy = 2
+                self.dy = 0.5
+        center = self.rect.center
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.center = center
+        self.rect.y += self.vy
+
+
+    def shoot(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_shot > self.shoot_delay:
+            self.last_shot = now
+            enemybullet = EnemyBullet(self.rect.centerx, self.rect.bottom)
+            enemybullet1 = EnemyBullet(self.rect.left, self.rect.centery)
+            enemybullet2 = EnemyBullet(self.rect.right, self.rect.centery)
+
+            all_sprites.add(enemybullet)
+            all_sprites.add(enemybullet1)
+            all_sprites.add(enemybullet2)
+            enemyBullets.add(enemybullet)
+            enemyBullets.add(enemybullet1)
+            enemyBullets.add(enemybullet2)
+            shoot_sound.play()
 
 class Mob(pygame.sprite.Sprite):
     def __init__(self):
@@ -239,10 +320,27 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.centerx = x
         self.speedy = -10
 
+
     def update(self):
         self.rect.y += self.speedy
         #kill if it moves off the top of the screen
         if self.rect.bottom < 0:
+            self.kill()
+
+class EnemyBullet(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = enemy_bullet_img
+        self.image.set_colorkey(BLACK)
+        self.rect = self.image.get_rect()
+        self.rect.top = y
+        self.rect.centerx = x
+        self.speedy = 10
+
+    def update(self):
+        self.rect.y += self.speedy
+        #kill if it moves off the top of the screen
+        if self.rect.bottom > HEIGHT:
             self.kill()
 
 class Pow(pygame.sprite.Sprite):
@@ -289,13 +387,15 @@ def show_go_screen():
     screen.blit(background, background_rect)
     draw_text(screen, "DESTROYER", 64, WIDTH / 2, HEIGHT / 4)
     draw_text(screen, "Arrow keys move, Space to fire", 22, WIDTH / 2, HEIGHT / 2)
-    draw_text(screen, "Press a key to begin", 18, WIDTH / 2, HEIGHT * 3 / 4)
+    draw_text(screen, "High Score: "+str(round(highscore)), 22, WIDTH / 2, 15)
+    draw_text(screen, "Press a key to begin, Press Q to quit", 18, WIDTH / 2, HEIGHT * 3 / 4)
     pygame.display.flip()
     waiting = True
     while waiting:
         clock.tick(FPS)
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            keystate = pygame.key.get_pressed()
+            if event.type == pygame.QUIT or keystate[pygame.K_q]:
                 pygame.quit()
             if event.type == pygame.KEYUP:
                 waiting = False
@@ -308,6 +408,7 @@ player_mini_img = pygame.transform.scale(player_img, (25, 19))
 player_mini_img.set_colorkey(BLACK)
 meteor_img = pygame.image.load(path.join(img_dir, "Meteors\meteorGrey_med1.png")).convert()
 bullet_img = pygame.image.load(path.join(img_dir, "Lasers\laserBlue16.png")).convert()
+enemy_bullet_img = pygame.image.load(path.join(img_dir, "Lasers\laserRed16.png")).convert()
 meteor_images = []
 meteor_list = ['meteorBrown_big1.png', 'meteorBrown_big2.png', 'meteorBrown_big3.png',
                'meteorBrown_big4.png', 'meteorBrown_med1.png', 'meteorBrown_med3.png',
@@ -317,7 +418,17 @@ meteor_list = ['meteorBrown_big1.png', 'meteorBrown_big2.png', 'meteorBrown_big3
                'meteorGrey_small2.png', 'meteorGrey_tiny1.png', 'meteorGrey_tiny2.png']
 for img in meteor_list:
     meteor_images.append(pygame.image.load(path.join(img_dir, 'Meteors\\'+img)).convert())
-
+enemies_images = []
+enemies_list = ['enemyBlack1.png', 'enemyBlack2.png', 'enemyBlack3.png', 'enemyBlack4.png', 'enemyBlack5.png',
+            'enemyBlue1.png', 'enemyBlue2.png', 'enemyBlue3.png', 'enemyBlue4.png', 'enemyBlue5.png',
+            'enemyGreen1.png', 'enemyGreen2.png', 'enemyGreen3.png', 'enemyGreen4.png', 'enemyGreen5.png',
+            'enemyRed1.png', 'enemyRed2.png', 'enemyRed3.png', 'enemyRed4.png', 'enemyRed5.png']
+for img in enemies_list:
+    enemies_images.append(pygame.image.load(path.join(img_dir, 'Enemies\\'+img)).convert())
+ufo_images = []
+ufo_list = ['ufoBlue.png', 'ufoGreen.png', 'ufoRed.png', 'ufoYellow.png']
+for img in ufo_list:
+    ufo_images.append(pygame.image.load(path.join(img_dir, img)).convert())
 explosion_anim = {}
 explosion_anim['lg'] = []
 explosion_anim['sm'] = []
@@ -351,33 +462,98 @@ player_die_sound = pygame.mixer.Sound(path.join(snd_dir, 'lowlife.wav'))
 pygame.mixer.music.load(path.join(snd_dir, 'Orbitron.wav'))
 pygame.mixer.music.set_volume(0.2)
 pygame.mixer.music.play(loops=-1)
-
+#Load data of high score
+with open(path.join(dir, HS_FILE), 'r') as f:
+    try:
+        highscore = int(f.read())
+    except:
+        highscore = 0
+#initializing lvl time
+level_time = pygame.time.get_ticks()
 # Game loop
 game_over = True
 running = True
 while running:
     if game_over:
+        level=1
+        beginning_time = pygame.time.get_ticks()
         show_go_screen()
         game_over = False
         all_sprites = pygame.sprite.Group()
         mobs = pygame.sprite.Group()
         bullets = pygame.sprite.Group()
+        enemyBullets = pygame.sprite.Group()
         powerups = pygame.sprite.Group()
+        enemies = pygame.sprite.Group()
+        ufos = pygame.sprite.Group()
         player = Player()
         all_sprites.add(player)
-        for i in range(8):
-            newmob()
+        for i in range(NUMBER_OF_MOBS+LVL_MOBS*level):
+            if i < 12:
+                newmob()
         score = 0
+    #update level
+    if pygame.time.get_ticks() - level_time > LEVEL_TIME:
+        level += 1
+        level_time = pygame.time.get_ticks()
+        newmob()
+        if level % 3 == 0:
+            for i in range (1, level):
+                if i < 6 and level <= 15:
+                    newEnemies()
+                if i < 10 and level > 15:
+                    newEnemies()
+                if i<3 and level % 2:
+                    newUfo()
     # keep loop running at the right speed
     clock.tick(FPS)
     # Process input (events)
     for event in pygame.event.get():
         # check for closing window
-        if event.type == pygame.QUIT:
+        keystate = pygame.key.get_pressed()
+        if event.type == pygame.QUIT or keystate[pygame.K_q]:
             running = False
 
     # Update
     all_sprites.update()
+
+    # check to see if enemy bullet hit us
+    hits = pygame.sprite.spritecollide(player, enemyBullets, True, pygame.sprite.collide_circle)
+    for hit in hits:
+        player.shield -= random.randrange(10, 30)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'sm')
+        all_sprites.add(expl)
+        if player.shield <= 0:
+            player_die_sound.play()
+            death_explosion = Explosion(player.rect.center, 'player')
+            all_sprites.add(death_explosion)
+            player.hide()
+            player.lives -= 1
+            player.shield = 100
+    #check to see if bullet hit ufo
+    hits = pygame.sprite.groupcollide(ufos, bullets, True, True)
+    for hit in hits:
+        score += random.randrange(50, 150)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'sm')
+        all_sprites.add(expl)
+        if random.random() > 0.9:
+            pow = Pow(hit.rect.center)
+            all_sprites.add(pow)
+            powerups.add(pow)
+
+    # check to see if bullet hit enemy
+    hits = pygame.sprite.groupcollide(enemies, bullets, True, True)
+    for hit in hits:
+        score += random.randrange(10, 50)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'sm')
+        all_sprites.add(expl)
+        if random.random() > 0.9:
+            pow = Pow(hit.rect.center)
+            all_sprites.add(pow)
+            powerups.add(pow)
 
     #check to see if bullet hit the mob
     hits = pygame.sprite.groupcollide(mobs, bullets, True, True)
@@ -407,6 +583,37 @@ while running:
             player.hide()
             player.lives -= 1
             player.shield = 100
+
+    # check to see if enemy hit the player
+    hits = pygame.sprite.spritecollide(player, enemies, True, pygame.sprite.collide_circle)
+    for hit in hits:
+        player.shield -= random.randrange(50, 100)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'lg')
+        all_sprites.add(expl)
+        if player.shield <= 0:
+            player_die_sound.play()
+            death_explosion = Explosion(player.rect.center, 'player')
+            all_sprites.add(death_explosion)
+            player.hide()
+            player.lives -= 1
+            player.shield = 100
+
+    # check to see if ufo hit the player
+    hits = pygame.sprite.spritecollide(player, ufos, True, pygame.sprite.collide_circle)
+    for hit in hits:
+        player.shield -= random.randrange(50, 100)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'lg')
+        all_sprites.add(expl)
+        if player.shield <= 0:
+            player_die_sound.play()
+            death_explosion = Explosion(player.rect.center, 'player')
+            all_sprites.add(death_explosion)
+            player.hide()
+            player.lives -= 1
+            player.shield = 100
+
     #check if the player hit a powerup
     hits = pygame.sprite.spritecollide(player, powerups, True)
     for hit in hits:
@@ -427,9 +634,18 @@ while running:
     screen.fill(BLACK)
     screen.blit(background, background_rect)
     all_sprites.draw(screen)
-    draw_text(screen, str(score), 18, WIDTH/2, 10)
+    draw_text(screen, str(round(score)), 18, WIDTH/2, 10)
+    draw_text(screen, str(round((pygame.time.get_ticks() - beginning_time)/1000))+" s", 18, WIDTH - 50, 50)
+    draw_text(screen, "LEVEL: "+str(level), 30, 50, HEIGHT - 50)
     draw_shield_bar(screen, 5, 5, player.shield)
     draw_lives(screen, WIDTH - 100, 5, player.lives, player_mini_img)
+    if score >= highscore - 1:
+        highscore = score
+        draw_text(screen, "NEW HIGH SCORE: " + str(round(highscore)), 22, WIDTH / 2, HEIGHT / 2 + 40)
+        with open(path.join(dir, HS_FILE), 'w') as f:
+            f.write(str(score))
+    else:
+        draw_text(screen, "High Score: " + str(round(highscore)), 22, WIDTH / 2, 40)
     # *after* drawing everything, flip the display
     pygame.display.flip()
 
