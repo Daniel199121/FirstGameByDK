@@ -414,6 +414,96 @@ def show_go_screen():
             if event.type == pygame.KEYUP:
                 waiting = False
 
+def ufo_or_enemy_hit_us(enemy, score ):
+    hits = pygame.sprite.spritecollide(player, enemy, True, pygame.sprite.collide_circle)
+    for hit in hits:
+        player.shield -= random.randrange(50, 100)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'lg')
+        all_sprites.add(expl)
+        if player.shield <= 0:
+            player_die_sound.play()
+            death_explosion = Explosion(player.rect.center, 'player')
+            all_sprites.add(death_explosion)
+            player.hide()
+            player.lives -= 1
+            player.shield = 100
+
+def mob_hit_us():
+    hits = pygame.sprite.spritecollide(player, mobs, True, pygame.sprite.collide_circle)
+    for hit in hits:
+        player.shield -= hit.radius * 2
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'sm')
+        all_sprites.add(expl)
+        newmob()
+        if player.shield <= 0:
+            player_die_sound.play()
+            death_explosion = Explosion(player.rect.center, 'player')
+            all_sprites.add(death_explosion)
+            player.hide()
+            player.lives -= 1
+            player.shield = 100
+
+def bullet_hit_enemy(enemy, min, max, chance, score):
+    hits = pygame.sprite.groupcollide(enemy, bullets, True, True)
+    for hit in hits:
+        score += random.randrange(min, max)
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'lg')
+        all_sprites.add(expl)
+        if random.random() > chance:
+            pow = Pow(hit.rect.center)
+            all_sprites.add(pow)
+            powerups.add(pow)
+
+def bullet_hit_mob(score):
+    hits = pygame.sprite.groupcollide(mobs, bullets, True, True)
+    for hit in hits:
+        score += 50 - hit.radius
+        random.choice(expl_sounds).play()
+        expl = Explosion(hit.rect.center, 'lg')
+        all_sprites.add(expl)
+        if random.random() > 0.95:
+            pow = Pow(hit.rect.center)
+            all_sprites.add(pow)
+            powerups.add(pow)
+        newmob()
+
+def take_powerup():
+    hits = pygame.sprite.spritecollide(player, powerups, True)
+    for hit in hits:
+        if hit.type == 'shield':
+            shield_sound.play()
+            player.shield += random.randrange(10, 30)
+            if player.shield >= 100:
+                player.shield = 100
+        if hit.type == 'gun':
+            power_sound.play()
+            player.powerup()
+
+def draw(score, highscore):
+    screen.fill(BLACK)
+    screen.blit(background, background_rect)
+    all_sprites.draw(screen)
+    draw_text(screen, str(round(score)), 18, WIDTH / 2, 10)
+    draw_text(screen, str(round((pygame.time.get_ticks() - beginning_time) / 1000)) + " s", 18, WIDTH - 50, 50)
+    draw_text(screen, "LEVEL: " + str(level), 20, 60, HEIGHT - 50)
+    draw_text(screen, "POWER: " + str(player.getPower()), 20, WIDTH - 60, HEIGHT - 50)
+    draw_shield_bar(screen, 5, 5, player.shield)
+    draw_lives(screen, WIDTH - 100, 5, player.lives, player_mini_img)
+    if score >= highscore - 1:
+        highscore = score
+        draw_text(screen, "NEW HIGH SCORE: " + str(round(highscore)), 22, WIDTH / 2, HEIGHT / 2 + 40)
+        with open(path.join(dir, HS_FILE), 'w') as f:
+            f.write(str(score))
+    else:
+        draw_text(screen, "High Score: " + str(round(highscore)), 22, WIDTH / 2, 40)
+    # *after* drawing everything, flip the display
+    pygame.display.flip()
+
+
+
 #Load graphics
 background = pygame.image.load(path.join(img_dir, "starfield.png")).convert()
 background_rect = background.get_rect()
@@ -527,7 +617,6 @@ while running:
         keystate = pygame.key.get_pressed()
         if event.type == pygame.QUIT or keystate[pygame.K_q]:
             running = False
-
     # Update
     all_sprites.update()
 
@@ -546,122 +635,31 @@ while running:
             player.lives -= 1
             player.shield = 100
     #check to see if bullet hit ufo
-    hits = pygame.sprite.groupcollide(ufos, bullets, True, True)
-    for hit in hits:
-        score += random.randrange(50, 150)
-        random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center, 'sm')
-        all_sprites.add(expl)
-        if random.random() > 0.75:
-            pow = Pow(hit.rect.center)
-            all_sprites.add(pow)
-            powerups.add(pow)
+    bullet_hit_enemy(ufos, 50, 150, 0.85, score)
 
     # check to see if bullet hit enemy
-    hits = pygame.sprite.groupcollide(enemies, bullets, True, True)
-    for hit in hits:
-        score += random.randrange(10, 50)
-        random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center, 'sm')
-        all_sprites.add(expl)
-        if random.random() > 0.85:
-            pow = Pow(hit.rect.center)
-            all_sprites.add(pow)
-            powerups.add(pow)
+    bullet_hit_enemy(enemies, 10, 50, 0.85, score)
 
     #check to see if bullet hit the mob
-    hits = pygame.sprite.groupcollide(mobs, bullets, True, True)
-    for hit in hits:
-        score += 50 - hit.radius
-        random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center, 'lg')
-        all_sprites.add(expl)
-        if random.random() > 0.95:
-            pow = Pow(hit.rect.center)
-            all_sprites.add(pow)
-            powerups.add(pow)
-        newmob()
+    bullet_hit_mob(score)
 
     #check to see if mob hit the player
-    hits = pygame.sprite.spritecollide(player, mobs, True, pygame.sprite.collide_circle)
-    for hit in hits:
-        player.shield -= hit.radius * 2
-        random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center, 'sm')
-        all_sprites.add(expl)
-        newmob()
-        if player.shield <= 0:
-            player_die_sound.play()
-            death_explosion = Explosion(player.rect.center, 'player')
-            all_sprites.add(death_explosion)
-            player.hide()
-            player.lives -= 1
-            player.shield = 100
+    mob_hit_us()
 
     # check to see if enemy hit the player
-    hits = pygame.sprite.spritecollide(player, enemies, True, pygame.sprite.collide_circle)
-    for hit in hits:
-        player.shield -= random.randrange(50, 100)
-        random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center, 'lg')
-        all_sprites.add(expl)
-        if player.shield <= 0:
-            player_die_sound.play()
-            death_explosion = Explosion(player.rect.center, 'player')
-            all_sprites.add(death_explosion)
-            player.hide()
-            player.lives -= 1
-            player.shield = 100
+    ufo_or_enemy_hit_us(enemies, score)
 
     # check to see if ufo hit the player
-    hits = pygame.sprite.spritecollide(player, ufos, True, pygame.sprite.collide_circle)
-    for hit in hits:
-        player.shield -= random.randrange(50, 100)
-        random.choice(expl_sounds).play()
-        expl = Explosion(hit.rect.center, 'lg')
-        all_sprites.add(expl)
-        if player.shield <= 0:
-            player_die_sound.play()
-            death_explosion = Explosion(player.rect.center, 'player')
-            all_sprites.add(death_explosion)
-            player.hide()
-            player.lives -= 1
-            player.shield = 100
+    ufo_or_enemy_hit_us(ufos, score)
 
     #check if the player hit a powerup
-    hits = pygame.sprite.spritecollide(player, powerups, True)
-    for hit in hits:
-        if hit.type == 'shield':
-            shield_sound.play()
-            player.shield += random.randrange(10, 30)
-            if player.shield >= 100:
-                player.shield = 100
-        if hit.type == 'gun':
-            power_sound.play()
-            player.powerup()
+    take_powerup()
 
     #if the player died and explosion finished
     if player.lives == 0 and not death_explosion.alive():
         game_over = True
 
     # Draw / render
-    screen.fill(BLACK)
-    screen.blit(background, background_rect)
-    all_sprites.draw(screen)
-    draw_text(screen, str(round(score)), 18, WIDTH/2, 10)
-    draw_text(screen, str(round((pygame.time.get_ticks() - beginning_time)/1000))+" s", 18, WIDTH - 50, 50)
-    draw_text(screen, "LEVEL: "+str(level), 20, 60, HEIGHT - 50)
-    draw_text(screen, "POWER: "+str(player.getPower()), 20, WIDTH - 60, HEIGHT - 50)
-    draw_shield_bar(screen, 5, 5, player.shield)
-    draw_lives(screen, WIDTH - 100, 5, player.lives, player_mini_img)
-    if score >= highscore - 1:
-        highscore = score
-        draw_text(screen, "NEW HIGH SCORE: " + str(round(highscore)), 22, WIDTH / 2, HEIGHT / 2 + 40)
-        with open(path.join(dir, HS_FILE), 'w') as f:
-            f.write(str(score))
-    else:
-        draw_text(screen, "High Score: " + str(round(highscore)), 22, WIDTH / 2, 40)
-    # *after* drawing everything, flip the display
-    pygame.display.flip()
+    draw(score, highscore)
 
 pygame.quit()
