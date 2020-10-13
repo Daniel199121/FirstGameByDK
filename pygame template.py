@@ -607,8 +607,15 @@ while running:
                     newEnemies()
                 if i < 10 and level > 15:
                     newEnemies()
-                if i<3 and level % 2:
+        if level % 5 == 0:
+            for i in range(1, level):
+                if i < 3 and level <= 10:
                     newUfo()
+                if i >= 3 and i <=6 and level <= 20:
+                    newUfo()
+                if i > 6 and i < 8 and level <=30:
+                    newUfo()
+
     # keep loop running at the right speed
     clock.tick(FPS)
     # Process input (events)
